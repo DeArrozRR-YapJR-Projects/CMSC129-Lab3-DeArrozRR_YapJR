@@ -13,9 +13,11 @@
   "license": "ISC",
   "type": "commonjs",
   "dependencies": {
+    "@google/generative-ai": "^0.24.1",
     "cors": "^2.8.6",
     "dotenv": "^17.2.4",
     "express": "^5.2.1",
+    "groq-sdk": "^1.1.2",
     "mongoose": "^9.2.0",
     "openai": "^4.28.0"
   },
