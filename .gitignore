@@ -9,3 +9,7 @@ server/.env.*
 # Optional example files
 !client/.env.example
 !server/.env.example
+
+# Mac system files
+.DS_Store
+**/.DS_Store
