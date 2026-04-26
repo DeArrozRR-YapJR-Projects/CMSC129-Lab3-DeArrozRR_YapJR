@@ -102,6 +102,17 @@ async function syncDatabases(sourceModel, targetModel, direction) {
   }
 }
 
+// --- Rate limiting for chat endpoint ---
+const rateLimit = require("express-rate-limit");
+
+const chatLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1 minute
+  max: 20,
+  message: { success: false, error: "Too many requests, please slow down." },
+});
+
+app.use("/api/chat", chatLimiter);
+
 // --- Poll loop: check connection health every 5s and sync on reconnect ---
 async function tryConnect(uri, label) {
   try {
@@ -319,27 +330,17 @@ app.post("/api/chat", async (req, res) => {
   try {
     const { message, sessionId } = req.body;
 
-    // Validate input
     if (!message || typeof message !== "string") {
-      return res.status(400).json({
-        success: false,
-        error: "Message is required and must be a string",
-      });
+      return res.status(400).json({ success: false, error: "Message is required and must be a string" });
     }
-
     if (!sessionId || typeof sessionId !== "string") {
-      return res.status(400).json({
-        success: false,
-        error: "SessionId is required",
-      });
+      return res.status(400).json({ success: false, error: "SessionId is required" });
     }
 
-    // Fetch all active workouts (not deleted) for context
     const workouts = await readFromDB((m) =>
       m.find({ isDeleted: { $ne: true } }).sort({ createdAt: -1 }).lean()
     );
 
-    // Transform workouts to include IDs
     const workoutContext = workouts.map((w) => ({
       id: w._id.toString(),
       title: w.title ?? "Workout",
@@ -348,27 +349,23 @@ app.post("/api/chat", async (req, res) => {
       exercises: w.exercises || [],
     }));
 
-    // Get AI response
-    const response = await chatbotService.queryWorkouts(message, workoutContext, sessionId);
+    // Pass apiBase so chatbot-service can call back into the API
+    const apiBase = `http://localhost:${process.env.PORT || 5000}`;
+    const response = await chatbotService.queryWorkouts(message, workoutContext, sessionId, apiBase);
 
     if (response.success) {
       res.json({
         success: true,
         message: response.message,
         sessionId: response.sessionId,
+        refresh: response.refresh || false, // tells frontend to reload workouts
       });
     } else {
-      res.status(500).json({
-        success: false,
-        error: response.message,
-      });
+      res.status(500).json({ success: false, error: response.message });
     }
   } catch (err) {
     console.error("Chat endpoint error:", err);
-    res.status(500).json({
-      success: false,
-      error: "Failed to process chat message",
-    });
+    res.status(500).json({ success: false, error: "Failed to process chat message" });
   }
 });
 

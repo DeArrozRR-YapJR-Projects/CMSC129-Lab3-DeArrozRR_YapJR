@@ -13,17 +13,15 @@ export default function App() {
   const [workouts, setWorkouts] = useState<Workout[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
-  // ✅ New State: Toggle between Active History and Trash Bin
   const [showTrash, setShowTrash] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0); // ✅ NEW
 
-  // READ: load from backend (Updates automatically when showTrash changes)
+  // READ: load from backend
   useEffect(() => {
     (async () => {
       try {
         setLoading(true);
         setError(null);
-        // Notice the ?deleted=${showTrash} in the URL!
         const res = await fetch(`${API_BASE}/api/workouts?deleted=${showTrash}`);
         if (!res.ok) throw new Error(await res.text());
         const data = (await res.json()) as { workouts: Workout[] };
@@ -34,7 +32,7 @@ export default function App() {
         setLoading(false);
       }
     })();
-  }, [showTrash]); 
+  }, [showTrash, refreshTrigger]); // ✅ added refreshTrigger
 
   // CREATE
   const handleAddWorkout = async (newWorkout: Workout) => {
@@ -82,7 +80,7 @@ export default function App() {
     }
   };
 
-  // ✅ RESTORE (Moves it out of the trash bin)
+  // RESTORE
   const handleRestoreWorkout = async (id: string) => {
     try {
       setError(null);
@@ -131,7 +129,6 @@ export default function App() {
           <StatsBar totalWorkouts={workouts.length} thisWeek={thisWeekCount} totalVolume={totalVolume} currentStreak={calculateStreak()} />
         </section>
 
-        {/* Hide Add form if we are currently looking at the Trash Bin */}
         {!showTrash && (
           <section>
             <AddWorkoutForm onAdd={handleAddWorkout} />
@@ -139,7 +136,6 @@ export default function App() {
         )}
 
         <section>
-          {/* ✅ The Toggle Header */}
           <div className="flex justify-between items-center mb-4">
             <h2 className="text-lg font-heading font-bold text-foreground">
               {showTrash ? "Trash Bin" : "History"}
@@ -152,19 +148,19 @@ export default function App() {
           {loading ? (
             <div className="text-sm text-muted-foreground">Loading workouts...</div>
           ) : (
-            <WorkoutHistory 
-              workouts={workouts} 
-              onDelete={handleDeleteWorkout} 
-              onUpdate={handleUpdateWorkout} 
-              onRestore={handleRestoreWorkout} 
-              isTrashView={showTrash} 
+            <WorkoutHistory
+              workouts={workouts}
+              onDelete={handleDeleteWorkout}
+              onUpdate={handleUpdateWorkout}
+              onRestore={handleRestoreWorkout}
+              isTrashView={showTrash}
             />
           )}
         </section>
       </div>
 
-      {/* AI Chatbot Widget */}
-      <Chatbot />
+      {/* ✅ AI Chatbot Widget — triggers workout list refresh after CRUD */}
+      <Chatbot onRefresh={() => setRefreshTrigger(t => t + 1)} />
     </div>
   );
 }
