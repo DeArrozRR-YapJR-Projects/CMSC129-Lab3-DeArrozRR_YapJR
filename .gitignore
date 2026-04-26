@@ -13,3 +13,8 @@ server/.env.*
 # Mac system files
 .DS_Store
 **/.DS_Store
+
+# Dependencies
+node_modules/
+server/node_modules/
+client/node_modules/
