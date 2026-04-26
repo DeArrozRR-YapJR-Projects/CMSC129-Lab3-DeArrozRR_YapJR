@@ -17,7 +17,8 @@
     "tslib": "^2.8.1"
   },
   "devDependencies": {
-    "concurrently": "^9.2.1"
+    "concurrently": "^9.2.1",
+    "nodemon": "^3.1.14"
   },
   "scripts": {
     "client": "npm run dev --prefix client",
