@@ -4,6 +4,7 @@ let client = null;
 
 if (process.env.GROQ_API_KEY) {
   client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  console.log("✅ GROQ client initialized for ChatbotService.");
 } else {
   console.warn("⚠️  GROQ_API_KEY not set. Chatbot will not be available.");
 }
@@ -18,7 +19,7 @@ When answering queries about workouts:
 5. Maintain context from the conversation history
 
 You have access to user's workout data including:
-- Workout titles, dates, duration, and exercises
+- Workout titles, dates, and exercises
 - Exercise details: name, sets, reps, and weight
 - Statistics: total workouts, weekly activity, volume calculations
 
@@ -90,9 +91,7 @@ class ChatbotService {
     if (!workouts || workouts.length === 0) return "No workouts found.";
 
     let context = `Total Workouts: ${workouts.length}\n\n`;
-    const totalDuration = workouts.reduce((sum, w) => sum + (w.duration || 0), 0);
     const totalExercises = workouts.reduce((sum, w) => sum + (w.exercises?.length || 0), 0);
-    context += `Total Duration: ${totalDuration} minutes\n`;
     context += `Total Exercises: ${totalExercises}\n\n`;
 
     context += "Recent Workouts:\n";
