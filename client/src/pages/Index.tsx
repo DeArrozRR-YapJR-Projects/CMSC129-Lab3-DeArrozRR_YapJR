@@ -3,6 +3,7 @@ import { Dumbbell } from "lucide-react";
 import StatsBar from "@/components/StatsBar";
 import AddWorkoutForm from "@/components/AddWorkoutForm";
 import WorkoutHistory from "@/components/WorkoutHistory";
+import Chatbot from "@/components/Chatbot";
 import { useWorkouts } from "@/hooks/useWorkouts";
 
 const Index = () => {
@@ -42,6 +43,9 @@ const Index = () => {
         {/* History */}
         <WorkoutHistory workouts={workouts} onDelete={deleteWorkout} />
       </div>
+
+      {/* AI Chatbot Widget */}
+      <Chatbot />
     </div>
   );
 };

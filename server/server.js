@@ -1,7 +1,8 @@
+require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
-require("dotenv").config();
+const chatbotService = require("./chatbot-service");
 
 const app = express();
 
@@ -107,7 +108,8 @@ async function tryConnect(uri, label) {
     const conn = await mongoose.createConnection(uri).asPromise();
     console.log(`✅ ${label} connected`);
     return conn;
-  } catch {
+  } catch (err){
+    console.warn(`⚠️  Failed to connect to ${label}:`, err.message);
     return null;
   }
 }
@@ -304,6 +306,100 @@ app.put("/api/workouts/:id/restore", async (req, res) => {
     );
     res.json({ ok: true, message: "Workout restored from trash." });
   } catch (err) { res.status(500).send(err.message); }
+});
+
+// --- AI Chatbot Routes ---
+
+/**
+ * POST /api/chat
+ * Natural language query endpoint
+ * Body: { message: string, sessionId: string }
+ */
+app.post("/api/chat", async (req, res) => {
+  try {
+    const { message, sessionId } = req.body;
+
+    // Validate input
+    if (!message || typeof message !== "string") {
+      return res.status(400).json({
+        success: false,
+        error: "Message is required and must be a string",
+      });
+    }
+
+    if (!sessionId || typeof sessionId !== "string") {
+      return res.status(400).json({
+        success: false,
+        error: "SessionId is required",
+      });
+    }
+
+    // Fetch all active workouts (not deleted) for context
+    const workouts = await readFromDB((m) =>
+      m.find({ isDeleted: { $ne: true } }).sort({ createdAt: -1 }).lean()
+    );
+
+    // Transform workouts to include IDs
+    const workoutContext = workouts.map((w) => ({
+      id: w._id.toString(),
+      title: w.title ?? "Workout",
+      date: w.date,
+      duration: w.duration ?? 0,
+      exercises: w.exercises || [],
+    }));
+
+    // Get AI response
+    const response = await chatbotService.queryWorkouts(message, workoutContext, sessionId);
+
+    if (response.success) {
+      res.json({
+        success: true,
+        message: response.message,
+        sessionId: response.sessionId,
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        error: response.message,
+      });
+    }
+  } catch (err) {
+    console.error("Chat endpoint error:", err);
+    res.status(500).json({
+      success: false,
+      error: "Failed to process chat message",
+    });
+  }
+});
+
+/**
+ * POST /api/chat/clear
+ * Clear conversation history for a session
+ * Body: { sessionId: string }
+ */
+app.post("/api/chat/clear", (req, res) => {
+  try {
+    const { sessionId } = req.body;
+
+    if (!sessionId || typeof sessionId !== "string") {
+      return res.status(400).json({
+        success: false,
+        error: "SessionId is required",
+      });
+    }
+
+    chatbotService.clearHistory(sessionId);
+
+    res.json({
+      success: true,
+      message: "Conversation history cleared",
+    });
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      error: "Failed to clear history",
+    });
+  }
 });
 
 // --- Start ---
