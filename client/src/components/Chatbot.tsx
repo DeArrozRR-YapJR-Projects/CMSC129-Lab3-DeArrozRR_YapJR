@@ -13,9 +13,12 @@ interface Message {
 
 interface ChatbotProps {
   apiUrl?: string;
+  onRefresh?: () => void;
 }
 
-const Chatbot: React.FC<ChatbotProps> = ({ apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000" }) => {
+
+const Chatbot: React.FC<ChatbotProps> = ({ apiUrl = import.meta.env.VITE_API_URL || "http://localhost:5000",
+  onRefresh, }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState("");
@@ -88,6 +91,9 @@ const Chatbot: React.FC<ChatbotProps> = ({ apiUrl = import.meta.env.VITE_API_URL
           timestamp: new Date(),
         };
         setMessages((prev) => [...prev, assistantMessage]);
+        if (data.refresh && onRefresh) {
+    onRefresh();
+  }
       } else {
         setError(data.error || "Failed to process your message");
       }
@@ -271,5 +277,6 @@ const Chatbot: React.FC<ChatbotProps> = ({ apiUrl = import.meta.env.VITE_API_URL
     </>
   );
 };
+
 
 export default Chatbot;
