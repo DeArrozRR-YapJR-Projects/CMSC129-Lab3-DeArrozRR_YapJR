@@ -3,6 +3,7 @@ import { Dumbbell } from "lucide-react";
 import AddWorkoutForm from "@/components/AddWorkoutForm";
 import StatsBar from "@/components/StatsBar";
 import WorkoutHistory from "@/components/WorkoutHistory";
+import Chatbot from "@/components/Chatbot";
 import type { Workout } from "@/types/workout";
 import { Button } from "@/components/ui/button";
 
@@ -161,6 +162,9 @@ export default function App() {
           )}
         </section>
       </div>
+
+      {/* AI Chatbot Widget */}
+      <Chatbot />
     </div>
   );
 }
