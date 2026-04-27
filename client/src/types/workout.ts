@@ -11,5 +11,4 @@ export interface Workout {
   date: string;
   title: string;
   exercises: Exercise[];
-  duration: number; // minutes
 }

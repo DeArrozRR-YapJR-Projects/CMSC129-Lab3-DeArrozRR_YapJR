@@ -6,6 +6,7 @@ interface StatsBarProps {
   thisWeek: number;
   totalVolume: number;
   currentStreak: number;
+  isTrashView?: boolean;
 }
 
 const StatCard = ({
@@ -37,7 +38,7 @@ const StatCard = ({
   </motion.div>
 );
 
-const StatsBar = ({ totalWorkouts, thisWeek, totalVolume, currentStreak }: StatsBarProps) => {
+const StatsBar = ({ totalWorkouts, thisWeek, totalVolume, currentStreak, isTrashView = false }: StatsBarProps) => {
   const formatVolume = (v: number) => {
     if (v >= 1000000) return `${(v / 1000000).toFixed(1)}M`;
     if (v >= 1000) return `${(v / 1000).toFixed(1)}K`;
@@ -45,8 +46,10 @@ const StatsBar = ({ totalWorkouts, thisWeek, totalVolume, currentStreak }: Stats
   };
 
   return (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-      <StatCard icon={Zap} label="Current Streak" value={`${currentStreak} Days`} delay={0} highlight={currentStreak > 0} />
+    <div className={`grid gap-3 ${isTrashView ? 'grid-cols-1 sm:grid-cols-3' : 'grid-cols-2 sm:grid-cols-4'}`}>
+      {!isTrashView && (
+        <StatCard icon={Zap} label="Current Streak" value={`${currentStreak} Days`} delay={0} highlight={currentStreak > 0} />
+      )}
       <StatCard icon={Dumbbell} label="Total Workouts" value={totalWorkouts.toString()} delay={0.1} />
       <StatCard icon={Calendar} label="This Week" value={thisWeek.toString()} delay={0.2} />
       <StatCard icon={TrendingUp} label="Total Volume" value={`${formatVolume(totalVolume)} lbs`} delay={0.3} />

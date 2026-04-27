@@ -52,7 +52,6 @@ const AddWorkoutForm = ({ onAdd }: AddWorkoutFormProps) => {
       // Fall back to "Workout" if the user left the title blank
       title: title.trim() || "Workout",
       exercises,
-      duration: 0,
     });
     setTitle("");
     setExercises([]);
