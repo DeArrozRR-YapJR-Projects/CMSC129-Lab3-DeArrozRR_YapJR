@@ -3,16 +3,15 @@ require("dotenv").config();
 
 const workoutSchema = new mongoose.Schema(
   {
-    title: { type: String, default: "Workout" },
-    date: { type: String, required: true },
-    duration: { type: Number, default: 0 },
+    title:     { type: String, default: "Workout" },
+    date:      { type: String, required: true },
     isDeleted: { type: Boolean, default: false },
     exercises: [
       {
-        id: { type: String, required: true },
-        name: { type: String, required: true },
-        sets: { type: Number, required: true },
-        reps: { type: Number, required: true },
+        id:     { type: String, required: true },
+        name:   { type: String, required: true },
+        sets:   { type: Number, required: true },
+        reps:   { type: Number, required: true },
         weight: { type: Number, required: true },
       },
     ],
@@ -24,7 +23,6 @@ const seedData = [
   {
     title: "Chest & Triceps",
     date: "2024-04-24",
-    duration: 65,
     exercises: [
       { id: "1", name: "Bench Press", sets: 4, reps: 8, weight: 225 },
       { id: "2", name: "Incline Dumbbell Press", sets: 3, reps: 10, weight: 85 },
@@ -36,7 +34,6 @@ const seedData = [
   {
     title: "Back & Biceps",
     date: "2024-04-23",
-    duration: 72,
     exercises: [
       { id: "1", name: "Deadlifts", sets: 3, reps: 5, weight: 315 },
       { id: "2", name: "Barbell Rows", sets: 4, reps: 8, weight: 245 },
@@ -48,7 +45,6 @@ const seedData = [
   {
     title: "Legs",
     date: "2024-04-22",
-    duration: 85,
     exercises: [
       { id: "1", name: "Squats", sets: 4, reps: 6, weight: 315 },
       { id: "2", name: "Romanian Deadlifts", sets: 4, reps: 8, weight: 275 },
@@ -61,7 +57,6 @@ const seedData = [
   {
     title: "Shoulders",
     date: "2024-04-21",
-    duration: 60,
     exercises: [
       { id: "1", name: "Military Press", sets: 4, reps: 8, weight: 165 },
       { id: "2", name: "Lateral Raises", sets: 3, reps: 12, weight: 35 },
@@ -72,7 +67,6 @@ const seedData = [
   {
     title: "Cardio & Core",
     date: "2024-04-20",
-    duration: 45,
     exercises: [
       { id: "1", name: "Treadmill Running", sets: 1, reps: 20, weight: 0 },
       { id: "2", name: "Ab Wheel Rollouts", sets: 3, reps: 15, weight: 0 },
@@ -83,7 +77,6 @@ const seedData = [
   {
     title: "Full Body",
     date: "2024-04-19",
-    duration: 70,
     exercises: [
       { id: "1", name: "Squats", sets: 3, reps: 8, weight: 275 },
       { id: "2", name: "Bench Press", sets: 3, reps: 8, weight: 205 },
@@ -94,7 +87,6 @@ const seedData = [
   {
     title: "Chest & Triceps",
     date: "2024-04-18",
-    duration: 68,
     exercises: [
       { id: "1", name: "Barbell Bench Press", sets: 4, reps: 8, weight: 225 },
       { id: "2", name: "Dumbbell Flyes", sets: 3, reps: 12, weight: 75 },
@@ -106,7 +98,6 @@ const seedData = [
   {
     title: "Back & Biceps",
     date: "2024-04-17",
-    duration: 75,
     exercises: [
       { id: "1", name: "Deadlifts", sets: 3, reps: 5, weight: 305 },
       { id: "2", name: "Bent Over Rows", sets: 4, reps: 8, weight: 235 },
@@ -118,7 +109,6 @@ const seedData = [
   {
     title: "Legs",
     date: "2024-04-16",
-    duration: 80,
     exercises: [
       { id: "1", name: "Squats", sets: 4, reps: 6, weight: 305 },
       { id: "2", name: "Leg Press", sets: 3, reps: 10, weight: 485 },
@@ -130,7 +120,6 @@ const seedData = [
   {
     title: "Shoulders",
     date: "2024-04-15",
-    duration: 58,
     exercises: [
       { id: "1", name: "Overhead Press", sets: 4, reps: 8, weight: 155 },
       { id: "2", name: "Machine Lateral Raises", sets: 3, reps: 15, weight: 80 },
@@ -141,7 +130,6 @@ const seedData = [
   {
     title: "Arms Focus",
     date: "2024-04-14",
-    duration: 55,
     exercises: [
       { id: "1", name: "Barbell Curls", sets: 4, reps: 8, weight: 125 },
       { id: "2", name: "Tricep Rope Extensions", sets: 3, reps: 12, weight: 70 },
@@ -152,7 +140,6 @@ const seedData = [
   {
     title: "Back & Lats",
     date: "2024-04-13",
-    duration: 77,
     exercises: [
       { id: "1", name: "Wide Grip Pull-ups", sets: 4, reps: 8, weight: 0 },
       { id: "2", name: "T-Bar Rows", sets: 3, reps: 8, weight: 275 },
@@ -163,7 +150,6 @@ const seedData = [
   {
     title: "Leg Day",
     date: "2024-04-12",
-    duration: 82,
     exercises: [
       { id: "1", name: "Front Squats", sets: 4, reps: 6, weight: 245 },
       { id: "2", name: "Bulgarian Split Squats", sets: 3, reps: 8, weight: 95 },
@@ -175,7 +161,6 @@ const seedData = [
   {
     title: "Push Day",
     date: "2024-04-11",
-    duration: 65,
     exercises: [
       { id: "1", name: "Incline Bench Press", sets: 4, reps: 8, weight: 205 },
       { id: "2", name: "Flat Bench Press", sets: 3, reps: 10, weight: 185 },
@@ -186,7 +171,6 @@ const seedData = [
   {
     title: "Pull Day",
     date: "2024-04-10",
-    duration: 70,
     exercises: [
       { id: "1", name: "Deadlifts", sets: 3, reps: 5, weight: 325 },
       { id: "2", name: "Rows", sets: 4, reps: 6, weight: 255 },
@@ -197,7 +181,6 @@ const seedData = [
   {
     title: "Conditioning",
     date: "2024-04-09",
-    duration: 50,
     exercises: [
       { id: "1", name: "Rowing Machine", sets: 1, reps: 30, weight: 0 },
       { id: "2", name: "Battle Ropes", sets: 3, reps: 40, weight: 0 },
@@ -208,7 +191,6 @@ const seedData = [
   {
     title: "Chest & Triceps",
     date: "2024-04-08",
-    duration: 69,
     exercises: [
       { id: "1", name: "Barbell Bench Press", sets: 4, reps: 8, weight: 225 },
       { id: "2", name: "Incline Dumbbell Press", sets: 3, reps: 10, weight: 85 },
@@ -226,20 +208,16 @@ async function seed() {
     const conn = await mongoose.connect(process.env.MONGO_URI);
     const Workout = conn.model("Workout", workoutSchema);
 
-    // Clear existing data
     await Workout.deleteMany({});
     console.log("🗑️  Cleared existing workouts");
 
-    // Insert seed data
     const result = await Workout.insertMany(seedData);
     console.log(`✅ Successfully seeded ${result.length} workouts`);
 
-    // Display summary
     const stats = await Workout.aggregate([
       {
         $facet: {
           totalWorkouts: [{ $count: "count" }],
-          avgDuration: [{ $group: { _id: null, avg: { $avg: "$duration" } } }],
           dateRange: [
             { $group: { _id: null, minDate: { $min: "$date" }, maxDate: { $max: "$date" } } },
           ],

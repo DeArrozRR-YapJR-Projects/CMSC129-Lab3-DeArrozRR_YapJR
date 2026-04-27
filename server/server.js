@@ -23,7 +23,6 @@ const workoutSchema = new mongoose.Schema(
   {
     title:     { type: String, default: "Workout" },
     date:      { type: String, required: true },
-    duration:  { type: Number, default: 0 },
     isDeleted: { type: Boolean, default: false },
     exercises: [
       {
@@ -43,10 +42,6 @@ let Workout       = null;
 let WorkoutBackup = null;
 let primaryConn   = null;
 let backupConn    = null;
-
-// Track which DBs were available last poll cycle
-let primaryWasUp = false;
-let backupWasUp  = false;
 
 // --- SSE ---
 const sseClients = new Set();
@@ -96,6 +91,8 @@ async function syncDatabases(sourceModel, targetModel, direction) {
       message: `Sync complete — ${synced} documents synced (${direction}).`,
       synced,
     });
+    // Notify clients to refresh data after sync
+    notifyClients("refresh", { source: "sync" });
   } catch (err) {
     console.error(`❌ Sync failed (${direction}):`, err.message);
     notifyClients("sync-error", { message: `Sync failed (${direction}): ${err.message}` });
@@ -119,7 +116,7 @@ async function tryConnect(uri, label) {
     const conn = await mongoose.createConnection(uri).asPromise();
     console.log(`✅ ${label} connected`);
     return conn;
-  } catch (err){
+  } catch (err) {
     console.warn(`⚠️  Failed to connect to ${label}:`, err.message);
     return null;
   }
@@ -131,21 +128,17 @@ async function pollConnections() {
 
   // --- Check primary ---
   if (!primaryUp && process.env.MONGO_URI) {
-    // Primary is currently down — try to reconnect
     const conn = await tryConnect(process.env.MONGO_URI, "Primary MongoDB");
     if (conn) {
       primaryConn = conn;
       Workout     = conn.model("Workout", workoutSchema);
       console.log("🔌 Primary came back online.");
-
-      // Primary just came back — sync both ways so they're identical
       if (WorkoutBackup) {
         await syncDatabases(WorkoutBackup, Workout,       "backup → primary");
         await syncDatabases(Workout,       WorkoutBackup, "primary → backup");
       }
     }
   } else if (primaryUp && process.env.MONGO_URI) {
-    // Primary is up — verify it's still reachable
     try {
       await Workout.findOne().lean();
     } catch {
@@ -158,21 +151,17 @@ async function pollConnections() {
 
   // --- Check backup ---
   if (!backupUp && process.env.MONGO_BACKUP_URI) {
-    // Backup is currently down — try to reconnect
     const conn = await tryConnect(process.env.MONGO_BACKUP_URI, "Backup MongoDB");
     if (conn) {
       backupConn    = conn;
       WorkoutBackup = conn.model("BackupWorkout", workoutSchema, "backup_workouts");
       console.log("🔌 Backup came back online.");
-
-      // Backup just came back — sync both ways so they're identical
       if (Workout) {
         await syncDatabases(Workout,       WorkoutBackup, "primary → backup");
         await syncDatabases(WorkoutBackup, Workout,       "backup → primary");
       }
     }
   } else if (backupUp && process.env.MONGO_BACKUP_URI) {
-    // Backup is up — verify it's still reachable
     try {
       await WorkoutBackup.findOne().lean();
     } catch {
@@ -228,7 +217,6 @@ app.get("/api/workouts", async (req, res) => {
         id:        d._id.toString(),
         title:     d.title ?? "Workout",
         date:      d.date,
-        duration:  d.duration ?? 0,
         exercises: d.exercises,
       })),
     });
@@ -237,15 +225,14 @@ app.get("/api/workouts", async (req, res) => {
 
 app.post("/api/workouts", async (req, res) => {
   try {
-    const { date, title, exercises, duration } = req.body;
+    const { date, title, exercises } = req.body;
     if (!date || !Array.isArray(exercises) || exercises.length === 0)
       return res.status(400).send("Invalid payload");
 
     const payload = {
-      title:    title?.trim() || "Workout",
+      title: title?.trim() || "Workout",
       date,
       exercises,
-      duration: Number(duration) || 0,
     };
 
     let doc = null;
@@ -263,10 +250,14 @@ app.post("/api/workouts", async (req, res) => {
     if (!doc && WorkoutBackup) doc = await WorkoutBackup.create(payload);
     if (!doc) return res.status(500).send("Both databases failed.");
 
+    notifyClients("refresh", { action: "create", id: doc._id });
+
     res.status(201).json({
       workout: {
-        id: doc._id.toString(), title: doc.title,
-        date: doc.date, duration: doc.duration ?? 0, exercises: doc.exercises,
+        id:        doc._id.toString(),
+        title:     doc.title,
+        date:      doc.date,
+        exercises: doc.exercises,
       },
     });
   } catch (err) { res.status(500).send(err.message); }
@@ -274,20 +265,33 @@ app.post("/api/workouts", async (req, res) => {
 
 app.put("/api/workouts/:id", async (req, res) => {
   try {
-    const { date, title, exercises, duration } = req.body;
-    if (!date || !Array.isArray(exercises)) return res.status(400).send("Invalid payload");
+    const { date, title, exercises } = req.body;
+    
+    // Build update object only with provided fields
+    const update = {};
+    if (title !== undefined) update.title = title?.trim() || "Workout";
+    if (date !== undefined) update.date = date;
+    if (exercises !== undefined) {
+      if (!Array.isArray(exercises)) return res.status(400).send("Exercises must be an array");
+      update.exercises = exercises;
+    }
 
-    const update = { title: title?.trim() || "Workout", date, exercises, duration: Number(duration) || 0 };
+    if (Object.keys(update).length === 0) return res.status(400).send("No fields to update");
+
     const doc = await writeToDB(
-      (m) => m.findByIdAndUpdate(req.params.id, update, { new: true }),
-      (m) => m.findByIdAndUpdate(req.params.id, update, { new: true })
+      (m) => m.findByIdAndUpdate(req.params.id, { $set: update }, { new: true }),
+      (m) => m.findByIdAndUpdate(req.params.id, { $set: update }, { new: true })
     );
     if (!doc) return res.status(404).send("Workout not found");
 
+    notifyClients("refresh", { action: "update", id: req.params.id });
+
     res.json({
       workout: {
-        id: doc._id.toString(), title: doc.title,
-        date: doc.date, duration: doc.duration ?? 0, exercises: doc.exercises,
+        id:        doc._id.toString(),
+        title:     doc.title,
+        date:      doc.date,
+        exercises: doc.exercises,
       },
     });
   } catch (err) { res.status(500).send(err.message); }
@@ -297,15 +301,20 @@ app.delete("/api/workouts/:id", async (req, res) => {
   try {
     const { type } = req.query;
     if (type === "hard") {
-      await writeToDB((m) => m.findByIdAndDelete(req.params.id), (m) => m.findByIdAndDelete(req.params.id));
-      res.json({ ok: true, message: "Workout permanently purged." });
+      await writeToDB(
+        (m) => m.findByIdAndDelete(req.params.id),
+        (m) => m.findByIdAndDelete(req.params.id)
+      );
     } else {
       await writeToDB(
         (m) => m.findByIdAndUpdate(req.params.id, { isDeleted: true }),
         (m) => m.findByIdAndUpdate(req.params.id, { isDeleted: true })
       );
-      res.json({ ok: true, message: "Workout moved to trash." });
     }
+    
+    notifyClients("refresh", { action: "delete", id: req.params.id, type: type || "soft" });
+    
+    res.json({ ok: true, message: type === "hard" ? "Workout permanently purged." : "Workout moved to trash." });
   } catch (err) { res.status(500).send(err.message); }
 });
 
@@ -315,50 +324,61 @@ app.put("/api/workouts/:id/restore", async (req, res) => {
       (m) => m.findByIdAndUpdate(req.params.id, { isDeleted: false }),
       (m) => m.findByIdAndUpdate(req.params.id, { isDeleted: false })
     );
+    
+    notifyClients("refresh", { action: "restore", id: req.params.id });
+    
     res.json({ ok: true, message: "Workout restored from trash." });
   } catch (err) { res.status(500).send(err.message); }
 });
 
-// --- AI Chatbot Routes ---
-
-/**
- * POST /api/chat
- * Natural language query endpoint
- * Body: { message: string, sessionId: string }
- */
+// --- AI Chatbot Route (single, correct) ---
 app.post("/api/chat", async (req, res) => {
   try {
-    const { message, sessionId } = req.body;
+    const { message, sessionId, mode } = req.body;
 
-    if (!message || typeof message !== "string") {
+    if (!message || typeof message !== "string")
       return res.status(400).json({ success: false, error: "Message is required and must be a string" });
-    }
-    if (!sessionId || typeof sessionId !== "string") {
+    if (!sessionId || typeof sessionId !== "string")
       return res.status(400).json({ success: false, error: "SessionId is required" });
-    }
 
-    const workouts = await readFromDB((m) =>
-      m.find({ isDeleted: { $ne: true } }).sort({ createdAt: -1 }).lean()
+    // Determine effective mode: default to "inquiry" if missing or invalid
+    let effectiveMode = "inquiry";
+    if (mode === "crud") effectiveMode = "crud";
+    else if (mode === "inquiry") effectiveMode = "inquiry";
+    // else default to inquiry (already set)
+
+    // Fetch ALL workouts (including soft-deleted) and mark them
+    const allWorkouts = await readFromDB((m) =>
+      m.find({}).sort({ createdAt: -1 }).lean()
     );
 
-    const workoutContext = workouts.map((w) => ({
-      id: w._id.toString(),
-      title: w.title ?? "Workout",
-      date: w.date,
-      duration: w.duration ?? 0,
-      exercises: w.exercises || [],
+    const workoutContext = allWorkouts.map((w) => ({
+      id:         w._id.toString(),
+      title:      w.title ?? "Workout",
+      date:       w.date,
+      exercises:  w.exercises || [],
+      isTrashed:  w.isDeleted === true,   // flag for AI
     }));
 
-    // Pass apiBase so chatbot-service can call back into the API
     const apiBase = `http://localhost:${process.env.PORT || 5000}`;
-    const response = await chatbotService.queryWorkouts(message, workoutContext, sessionId, apiBase);
+    const response = await chatbotService.queryWorkouts(
+      message,
+      workoutContext,
+      sessionId,
+      apiBase,
+      effectiveMode   // pass mode to service
+    );
 
     if (response.success) {
+      if (response.refresh) {
+        notifyClients("refresh", { source: "ai", sessionId });
+      }
+
       res.json({
-        success: true,
-        message: response.message,
+        success:   true,
+        message:   response.message,
         sessionId: response.sessionId,
-        refresh: response.refresh || false, // tells frontend to reload workouts
+        refresh:   response.refresh || false,
       });
     } else {
       res.status(500).json({ success: false, error: response.message });
@@ -369,33 +389,17 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-/**
- * POST /api/chat/clear
- * Clear conversation history for a session
- * Body: { sessionId: string }
- */
 app.post("/api/chat/clear", (req, res) => {
   try {
     const { sessionId } = req.body;
 
-    if (!sessionId || typeof sessionId !== "string") {
-      return res.status(400).json({
-        success: false,
-        error: "SessionId is required",
-      });
-    }
+    if (!sessionId || typeof sessionId !== "string")
+      return res.status(400).json({ success: false, error: "SessionId is required" });
 
     chatbotService.clearHistory(sessionId);
-
-    res.json({
-      success: true,
-      message: "Conversation history cleared",
-    });
+    res.json({ success: true, message: "Conversation history cleared" });
   } catch (err) {
-    res.status(500).json({
-      success: false,
-      error: "Failed to clear history",
-    });
+    res.status(500).json({ success: false, error: "Failed to clear history" });
   }
 });
 
@@ -404,7 +408,6 @@ async function start() {
   if (!process.env.MONGO_URI && !process.env.MONGO_BACKUP_URI)
     throw new Error("At least one DB URI must be set in .env");
 
-  // Initial connections
   if (process.env.MONGO_URI) {
     primaryConn = await tryConnect(process.env.MONGO_URI, "Primary MongoDB");
     if (primaryConn) Workout = primaryConn.model("Workout", workoutSchema);
@@ -421,13 +424,11 @@ async function start() {
   if (!Workout)       console.warn("⚠️  Running on BACKUP only — primary is down.");
   if (!WorkoutBackup) console.warn("⚠️  Running on PRIMARY only — backup is down.");
 
-  // Initial startup sync — run both directions so both DBs are fully identical
   if (Workout && WorkoutBackup) {
     await syncDatabases(WorkoutBackup, Workout,       "backup → primary (startup)");
     await syncDatabases(Workout,       WorkoutBackup, "primary → backup (startup)");
   }
 
-  // Start polling every 5 seconds to detect reconnects
   setInterval(pollConnections, 5000);
 
   const PORT = process.env.PORT || 5000;
